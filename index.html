@@ -85,6 +85,11 @@
             <div id="passwordError" class="warning-text hidden">⚠️ 授權密碼錯誤，無法送出！</div>
         </div>
 
+        <div class="form-group hidden" id="notifyGroup">
+            <label for="notifyEmails">通知人員 E-Mail (選填)</label>
+            <input type="email" multiple id="notifyEmails" placeholder="多人請用英文逗號(,)隔開">
+        </div>
+
         <div class="form-group" id="reasonGroup">
             <label for="reason" id="reasonLabel">備註 (選填)</label>
             <input type="text" id="reason" placeholder="有什麼需要特別說明的嗎？(選填)">
@@ -112,6 +117,8 @@
     const passwordGroup = document.getElementById('passwordGroup'); 
     const passwordInput = document.getElementById('adminPassword');
     const passwordError = document.getElementById('passwordError');
+    const notifyGroup = document.getElementById('notifyGroup');     // 通知信箱群組
+    const notifyEmailsInput = document.getElementById('notifyEmails'); // 通知信箱輸入框
     const reasonLabel = document.getElementById('reasonLabel');
     const reasonInput = document.getElementById('reason');
     const userEmailInput = document.getElementById('userEmail');
@@ -130,7 +137,7 @@
             allRawData = data;
             loadingText.classList.add('hidden');
             form.classList.remove('hidden');
-            renderCategories(); // 網頁載入完成後，根據預設動作與 Email 自動渲染選單
+            renderCategories(); 
         })
         .catch(err => {
             loadingText.textContent = "載入設備清單失敗，請重新整理網頁。";
@@ -138,42 +145,29 @@
         });
     };
 
-    // ★ 核心引擎 1：根據動作與 Email，判斷哪些設備符合條件 ★
     function getEligibleEquips() {
         const action = actionSelect.value;
         const email = userEmailInput.value.trim().toLowerCase();
 
         return allRawData.filter(item => {
-            if (action === '借用') {
-                return item.status === '在庫';
-            } else if (action === '申請歸還') {
-                // 必須是借出中，且還沒被申請歸還，且借用人 E-Mail 與當前填寫的 E-Mail 一致
-                return item.status === '借出中' && item.cStatus !== '待簽核' && item.borrower.toLowerCase() === email;
-            } else if (action === '主管加簽') {
-                return item.cStatus === '待簽核';
-            } else if (action === '報修') {
-                // 只要不是在維修系統中的，都可以報修
-                return item.status !== '待維修' && item.status !== '維修中';
-            } else if (action === '送修') {
-                return item.status === '待維修';
-            } else if (action === '維修取回') {
-                return item.status === '維修中' || item.status === '待維修';
-            }
+            if (action === '借用') return item.status === '在庫';
+            if (action === '申請歸還') return item.status === '借出中' && item.cStatus !== '待簽核' && item.borrower.toLowerCase() === email;
+            if (action === '主管加簽') return item.cStatus === '待簽核';
+            if (action === '報修') return item.status !== '待維修' && item.status !== '維修中';
+            if (action === '送修') return item.status === '待維修';
+            if (action === '維修取回') return item.status === '維修中' || item.status === '待維修';
             return false;
         });
     }
 
-    // ★ 核心引擎 2：動態生成「第一步：設備類別」選單並計算數量 ★
     function renderCategories() {
         const eligibleItems = getEligibleEquips();
         const catCounts = {};
         
-        // 計算每個類別符合條件的數量
         eligibleItems.forEach(item => {
             catCounts[item.category] = (catCounts[item.category] || 0) + 1;
         });
 
-        // 重新繪製選單
         categorySelect.innerHTML = '<option value="">-- 請選擇類別 --</option>';
         Object.keys(catCounts).forEach(cat => {
             let opt = document.createElement('option');
@@ -182,13 +176,11 @@
             categorySelect.appendChild(opt);
         });
 
-        // 重置第二步
         equipSelect.innerHTML = '<option value="">-- 請先選擇類別 --</option>';
         equipSelect.disabled = true;
         validateFormSubmitState(); 
     }
 
-    // ★ 核心引擎 3：動態生成「第二步：特定設備」選單 ★
     function renderEquips() {
         const selectedCat = categorySelect.value;
         equipSelect.innerHTML = '<option value="">-- 請選擇設備 --</option>';
@@ -199,7 +191,6 @@
             return;
         }
 
-        // 只抓出該類別且符合動作條件的設備
         const eligibleItems = getEligibleEquips().filter(item => item.category === selectedCat);
 
         eligibleItems.forEach(item => {
@@ -213,29 +204,21 @@
         validateFormSubmitState();
     }
 
-    // 檢查是否可以送出（因為選單已經過濾過絕對是正確的狀態，這裡主要檢查必填項有無漏填）
     function validateFormSubmitState() {
         statusWarning.classList.add('hidden');
-        if (!equipSelect.value) {
-            submitBtn.disabled = true;
-        } else {
-            submitBtn.disabled = false;
-        }
+        submitBtn.disabled = !equipSelect.value;
     }
 
-    // 事件監聽：當 E-Mail 改變(離開輸入框)時，重新計算下拉選單
     userEmailInput.addEventListener('blur', renderCategories);
-    
-    // 事件監聽：當選取類別時，渲染特定設備
     categorySelect.addEventListener('change', renderEquips);
 
-    // 事件監聽：切換動作時，處理欄位隱藏/顯示，並重新計算下拉選單
     actionSelect.addEventListener('change', function() {
         cosignerGroup.classList.add('hidden');
         cosignerInput.required = false;
         passwordGroup.classList.add('hidden');
         passwordInput.required = false;
         passwordError.classList.add('hidden');
+        notifyGroup.classList.add('hidden'); // 預設隱藏通知信箱
 
         if (this.value === '借用') {
             statusGroup.classList.remove('hidden');
@@ -267,6 +250,7 @@
         else if (this.value === '維修取回') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.remove('hidden'); 
+            notifyGroup.classList.remove('hidden'); // ★ 維修取回顯示通知信箱 ★
             reasonLabel.textContent = '備註 (選填)';
             reasonInput.placeholder = '有什麼需要特別說明的嗎？(選填)';
             reasonInput.required = false;
@@ -274,6 +258,7 @@
         else if (this.value === '報修') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.add('hidden');    
+            notifyGroup.classList.remove('hidden'); // ★ 報修顯示通知信箱 ★
             reasonLabel.textContent = '故障原因 (必填)';
             reasonInput.placeholder = '請簡述故障狀況...';
             reasonInput.required = true;
@@ -286,7 +271,6 @@
             reasonInput.required = true;
         }
         
-        // ★ 核心：切換動作後，立刻重新過濾並刷新類別清單
         renderCategories(); 
     });
 
@@ -315,7 +299,8 @@
             currentStatus: document.getElementById('currentStatus').value,
             currentLocation: document.getElementById('currentLocation').value,
             reason: reasonInput.value,
-            cosigner: cosignerInput.value 
+            cosigner: cosignerInput.value,
+            notifyEmails: notifyEmailsInput.value // ★ 打包通知信箱傳給後端
         };
 
         fetch(GAS_URL, {
