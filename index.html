@@ -58,6 +58,14 @@
             <div id="statusWarning" class="warning-text hidden"></div>
         </div>
 
+        <div class="form-group" id="periodGroup">
+            <label for="period">借用週期</label>
+            <select id="period">
+                <option value="短期">短期 (14天自動催還)</option>
+                <option value="長期">長期 (每月25號定期盤點)</option>
+            </select>
+        </div>
+
         <div class="form-group" id="statusGroup">
             <label for="currentStatus">當前狀態</label>
             <select id="currentStatus">
@@ -110,6 +118,8 @@
     const categorySelect = document.getElementById('categorySelect');
     const equipSelect = document.getElementById('equipSelect');
     const actionSelect = document.getElementById('action');
+    const periodGroup = document.getElementById('periodGroup');     // 週期群組
+    const periodSelect = document.getElementById('period');         // 週期下拉選單
     const statusGroup = document.getElementById('statusGroup');
     const locationGroup = document.getElementById('locationGroup');
     const cosignerGroup = document.getElementById('cosignerGroup'); 
@@ -117,8 +127,8 @@
     const passwordGroup = document.getElementById('passwordGroup'); 
     const passwordInput = document.getElementById('adminPassword');
     const passwordError = document.getElementById('passwordError');
-    const notifyGroup = document.getElementById('notifyGroup');     // 通知信箱群組
-    const notifyEmailsInput = document.getElementById('notifyEmails'); // 通知信箱輸入框
+    const notifyGroup = document.getElementById('notifyGroup');     
+    const notifyEmailsInput = document.getElementById('notifyEmails'); 
     const reasonLabel = document.getElementById('reasonLabel');
     const reasonInput = document.getElementById('reason');
     const userEmailInput = document.getElementById('userEmail');
@@ -218,9 +228,11 @@
         passwordGroup.classList.add('hidden');
         passwordInput.required = false;
         passwordError.classList.add('hidden');
-        notifyGroup.classList.add('hidden'); // 預設隱藏通知信箱
+        notifyGroup.classList.add('hidden'); 
+        periodGroup.classList.add('hidden'); // 預設隱藏週期欄位
 
         if (this.value === '借用') {
+            periodGroup.classList.remove('hidden'); // ★ 借用時展開週期選單 ★
             statusGroup.classList.remove('hidden');
             locationGroup.classList.remove('hidden'); 
             reasonLabel.textContent = '備註 (選填)';
@@ -250,7 +262,7 @@
         else if (this.value === '維修取回') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.remove('hidden'); 
-            notifyGroup.classList.remove('hidden'); // ★ 維修取回顯示通知信箱 ★
+            notifyGroup.classList.remove('hidden'); 
             reasonLabel.textContent = '備註 (選填)';
             reasonInput.placeholder = '有什麼需要特別說明的嗎？(選填)';
             reasonInput.required = false;
@@ -258,7 +270,7 @@
         else if (this.value === '報修') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.add('hidden');    
-            notifyGroup.classList.remove('hidden'); // ★ 報修顯示通知信箱 ★
+            notifyGroup.classList.remove('hidden'); 
             reasonLabel.textContent = '故障原因 (必填)';
             reasonInput.placeholder = '請簡述故障狀況...';
             reasonInput.required = true;
@@ -281,7 +293,7 @@
         passwordError.classList.add('hidden');
 
         if (actionSelect.value === '主管加簽') {
-            const ADMIN_PASSWORD = "8888"; // 💡 主管專屬密碼
+            const ADMIN_PASSWORD = "8888"; 
             if (passwordInput.value !== ADMIN_PASSWORD) {
                 passwordError.classList.remove('hidden');
                 return; 
@@ -300,7 +312,8 @@
             currentLocation: document.getElementById('currentLocation').value,
             reason: reasonInput.value,
             cosigner: cosignerInput.value,
-            notifyEmails: notifyEmailsInput.value // ★ 打包通知信箱傳給後端
+            notifyEmails: notifyEmailsInput.value,
+            period: periodGroup.classList.contains('hidden') ? "" : periodSelect.value // ★ 打包週期資料
         };
 
         fetch(GAS_URL, {
