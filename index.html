@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>設備管理系統</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f5f7; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .card { background: white; width: 100%; max-width: 400px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 25px; box-sizing: border-box; }
+        h2 { text-align: center; color: #333; margin-top: 0; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #666; font-weight: bold; font-size: 14px; }
+        input[type="email"], input[type="text"], select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        .hidden { display: none; }
+        .btn { background-color: #06C755; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: background-color 0.3s; }
+        .btn:hover:not(:disabled) { background-color: #05a044; }
+        .btn:disabled { background-color: #cccccc; cursor: not-allowed; }
+        #loading { text-align: center; color: #666; font-size: 14px; margin-top: 10px; }
+        .warning-text { color: #e74c3c; font-size: 13px; font-weight: bold; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>設備借用與報修</h2>
+    <div id="loading">正在載入最新設備清單...</div>
+    
+    <form id="equipForm" class="hidden">
+        <div class="form-group">
+            <label for="userEmail">員工 E-Mail</label>
+            <input type="email" id="userEmail" required placeholder="yourname@company.com">
+        </div>
+
+        <div class="form-group">
+            <label for="action">動作</label>
+            <select id="action" required>
+                <option value="借用">借用設備</option>
+                <option value="歸還">歸還設備</option>
+                <option value="報修">設備報修</option>
+                <option value="送修">送修 (維修中)</option>
+                <option value="維修取回">維修取回</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="categorySelect">第一步：選擇設備類別</label>
+            <select id="categorySelect" required>
+                <option value="">-- 請選擇類別 --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="equipSelect">第二步：選擇特定設備</label>
+            <select id="equipSelect" required disabled>
+                <option value="">-- 請先選擇類別 --</option>
+            </select>
+            <div id="statusWarning" class="warning-text hidden"></div>
+        </div>
+
+        <div class="form-group" id="statusGroup">
+            <label for="currentStatus">當前狀態</label>
+            <select id="currentStatus">
+                <option value="在借用人手上">在借用人手上</option>
+                <option value="外借">外借</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="locationGroup">
+            <label for="currentLocation">當前位置</label>
+            <select id="currentLocation">
+                <option value="AITg">AITg</option>
+                <option value="MPS">MPS</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="reasonGroup">
+            <label for="reason" id="reasonLabel">備註 (選填)</label>
+            <input type="text" id="reason" placeholder="有什麼需要特別說明的嗎？(選填)">
+        </div>
+
+        <button type="submit" class="btn" id="submitBtn">送出資料</button>
+        <div id="submitLoading" style="display:none; text-align:center; color:#666; margin-top:10px;">資料傳送中...</div>
+    </form>
+</div>
+
+<script>
+    // === ⚠️ 請置換為你最新的 GAS 網頁應用程式網址 ===
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbz8GIx631KbR0XeNJI2v-UQX6s1zMHooypntjkNsJAzU0GtVdC03FWkZiW5fPC2Tt4rWA/exec"; 
+
+    let allRawData = [];
+    const form = document.getElementById('equipForm');
+    const loadingText = document.getElementById('loading');
+    const categorySelect = document.getElementById('categorySelect');
+    const equipSelect = document.getElementById('equipSelect');
+    const actionSelect = document.getElementById('action');
+    const statusGroup = document.getElementById('statusGroup');
+    const locationGroup = document.getElementById('locationGroup');
+    const reasonLabel = document.getElementById('reasonLabel');
+    const reasonInput = document.getElementById('reason');
+    const userEmailInput = document.getElementById('userEmail');
+    const statusWarning = document.getElementById('statusWarning');
+    const submitBtn = document.getElementById('submitBtn');
+
+    window.onload = function() {
+        const savedEmail = localStorage.getItem('savedEmail');
+        if (savedEmail) userEmailInput.value = savedEmail;
+
+        fetch(GAS_URL)
+        .then(response => response.json())
+        .then(data => {
+            allRawData = data;
+            const categories = [...new Set(data.map(item => item.category))];
+            categories.forEach(cat => {
+                let opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                categorySelect.appendChild(opt);
+            });
+            loadingText.classList.add('hidden');
+            form.classList.remove('hidden');
+        })
+        .catch(err => {
+            loadingText.textContent = "載入設備清單失敗，請重新整理網頁。";
+            console.error(err);
+        });
+    };
+
+    // ★ 擴展版的防呆邏輯 ★
+    function validateFormStatus() {
+        const currentAction = actionSelect.value;
+        const selectedId = equipSelect.value;
+        
+        statusWarning.classList.add('hidden');
+        submitBtn.disabled = false;
+
+        if (!selectedId) return; 
+
+        const targetEquip = allRawData.find(item => item.id === selectedId);
+        if (!targetEquip) return;
+
+        if (currentAction === '借用' && targetEquip.status !== '在庫') {
+            statusWarning.textContent = `⚠️ 此設備目前為「${targetEquip.status}」，無法借用！`;
+            statusWarning.classList.remove('hidden');
+            submitBtn.disabled = true;
+        } 
+        else if (currentAction === '歸還' && targetEquip.status !== '借出中') {
+            if (targetEquip.status === '在庫') {
+                statusWarning.textContent = `⚠️ 此設備已在「在庫」狀態，無需歸還！`;
+            } else {
+                statusWarning.textContent = `⚠️ 此設備目前為「${targetEquip.status}」，無法執行歸還！`;
+            }
+            statusWarning.classList.remove('hidden');
+            submitBtn.disabled = true;
+        }
+        else if (currentAction === '報修' && (targetEquip.status === '待維修' || targetEquip.status === '維修中')) {
+            statusWarning.textContent = `⚠️ 此設備已在「${targetEquip.status}」狀態，請勿重複報修！`;
+            statusWarning.classList.remove('hidden');
+            submitBtn.disabled = true;
+        }
+        // ★ 關鍵更新：送修僅能選擇「待維修」的物件 ★
+        else if (currentAction === '送修' && targetEquip.status !== '待維修') {
+            statusWarning.textContent = `⚠️ 此設備目前為「${targetEquip.status}」，僅有「待維修」的設備可執行送修！`;
+            statusWarning.classList.remove('hidden');
+            submitBtn.disabled = true;
+        }
+        else if (currentAction === '維修取回' && (targetEquip.status !== '維修中' && targetEquip.status !== '待維修')) {
+            statusWarning.textContent = `⚠️ 此設備目前為「${targetEquip.status}」，並非維修狀態，無法執行取回！`;
+            statusWarning.classList.remove('hidden');
+            submitBtn.disabled = true;
+        }
+    }
+
+    categorySelect.addEventListener('change', function() {
+        equipSelect.innerHTML = '<option value="">-- 請選擇設備 --</option>';
+        if (this.value === '') {
+            equipSelect.disabled = true;
+            validateFormStatus(); 
+            return;
+        }
+        const filtered = allRawData.filter(item => item.category === this.value);
+        filtered.forEach(item => {
+            let opt = document.createElement('option');
+            opt.value = item.id;
+            opt.textContent = `${item.name} ${item.id}`; 
+            equipSelect.appendChild(opt);
+        });
+        equipSelect.disabled = false;
+        validateFormStatus(); 
+    });
+
+    equipSelect.addEventListener('change', validateFormStatus);
+
+    actionSelect.addEventListener('change', function() {
+        if (this.value === '借用') {
+            statusGroup.classList.remove('hidden');
+            locationGroup.classList.remove('hidden'); 
+            reasonLabel.textContent = '備註 (選填)';
+            reasonInput.placeholder = '有什麼需要特別說明的嗎？(選填)';
+            reasonInput.required = false;
+        } 
+        else if (this.value === '歸還' || this.value === '維修取回') {
+            statusGroup.classList.add('hidden');
+            locationGroup.classList.remove('hidden'); // 歸還、取回都顯示位置 (AITg/MPS)
+            reasonLabel.textContent = '備註 (選填)';
+            reasonInput.placeholder = '有什麼需要特別說明的嗎？(選填)';
+            reasonInput.required = false;
+        } 
+        else if (this.value === '報修') {
+            statusGroup.classList.add('hidden');
+            locationGroup.classList.add('hidden');    // 報修隱藏位置
+            reasonLabel.textContent = '故障原因 (必填)';
+            reasonInput.placeholder = '請簡述故障狀況...';
+            reasonInput.required = true;
+        }
+        else if (this.value === '送修') {
+            statusGroup.classList.add('hidden');
+            locationGroup.classList.add('hidden');    // 送修隱藏位置
+            reasonLabel.textContent = '維修廠商 (必填)'; 
+            reasonInput.placeholder = '請輸入維修廠商名稱...';
+            reasonInput.required = true;
+        }
+        validateFormStatus(); 
+    });
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        submitBtn.disabled = true;
+        document.getElementById('submitLoading').style.display = 'block';
+        localStorage.setItem('savedEmail', userEmailInput.value);
+
+        const sendData = {
+            userEmail: userEmailInput.value,
+            equipId: equipSelect.value,
+            action: actionSelect.value,
+            currentStatus: document.getElementById('currentStatus').value,
+            currentLocation: document.getElementById('currentLocation').value,
+            reason: reasonInput.value
+        };
+
+        fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify(sendData),
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' }
+        }).then(() => {
+            alert(sendData.action + " 紀錄已成功送出！");
+            window.location.reload(); 
+        }).catch(err => {
+            alert("傳送失敗");
+            submitBtn.disabled = false;
+            document.getElementById('submitLoading').style.display = 'none';
+        });
+    });
+</script>
+</body>
+</html>
