@@ -34,11 +34,11 @@
         <div class="form-group">
             <label for="action">動作</label>
             <select id="action" required>
-                <option value="借用">借用設備</option>
-                <option value="申請歸還">申請歸還</option>
-                <option value="二次加簽">二次加簽確認</option>
-                <option value="報修">設備報修</option>
-                <option value="送修">送修 (維修中)</option>
+                <option value="借用設備">借用設備</option>
+                <option value="歸還設備">歸還設備</option>
+                <option value="加簽確認">加簽確認</option>
+                <option value="故障通報">故障通報</option>
+                <option value="設備維修">設備維修</option>
                 <option value="維修取回">維修取回</option>
             </select>
         </div>
@@ -88,7 +88,7 @@
         </div>
 
         <div class="form-group hidden" id="passwordGroup">
-            <label for="adminPassword">二次加簽授權密碼 (必填)</label>
+            <label for="adminPassword">加簽確認密碼 (必填)</label>
             <input type="password" id="adminPassword" placeholder="請加簽人員輸入授權驗證碼">
             <div id="passwordError" class="warning-text hidden">⚠️ 授權密碼錯誤，無法送出！</div>
         </div>
@@ -151,7 +151,7 @@
             loadingText.classList.add('hidden');
             form.classList.remove('hidden');
             
-            // ★ 關鍵修復：主動觸發一次動作切換事件，讓預設的「借用設備」對應的加簽人欄位瞬間解除隱藏！
+            // 主動觸發一次動作切換事件，載入預設選單的對應欄位
             actionSelect.dispatchEvent(new Event('change'));
             
             renderCategories(); 
@@ -167,11 +167,12 @@
         const email = userEmailInput.value.trim().toLowerCase();
 
         return allRawData.filter(item => {
-            if (action === '借用') return item.status === '在庫';
-            if (action === '申請歸還') return item.status === '借出中' && item.cStatus !== '待簽核' && item.borrower.toLowerCase() === email;
-            if (action === '二次加簽') return item.status === '申請中' || item.cStatus === '待簽核';
-            if (action === '報修') return item.status !== '待維修' && item.status !== '維修中';
-            if (action === '送修') return item.status === '待維修' || item.status === '在庫' || item.status === ''; 
+            // ★ 已全面替換為新動作名稱 ★
+            if (action === '借用設備') return item.status === '在庫';
+            if (action === '歸還設備') return item.status === '借出中' && item.cStatus !== '待簽核' && item.borrower.toLowerCase() === email;
+            if (action === '加簽確認') return item.status === '申請中' || item.cStatus === '待簽核';
+            if (action === '故障通報') return item.status !== '待維修' && item.status !== '維修中';
+            if (action === '設備維修') return item.status === '待維修' || item.status === '在庫' || item.status === ''; 
             if (action === '維修取回') return item.status === '維修中' || item.status === '待維修';
             return false;
         });
@@ -213,7 +214,7 @@
         eligibleItems.forEach(item => {
             let opt = document.createElement('option');
             opt.value = item.id;
-            if (actionSelect.value === '二次加簽') {
+            if (actionSelect.value === '加簽確認') {
                 const typeText = (item.status === '申請中') ? '【借用申請】' : '【歸還申請】';
                 opt.textContent = `${typeText} ${item.name} ${item.id}`;
             } else {
@@ -232,7 +233,7 @@
     }
 
     function checkBorrowStatus() {
-        if (actionSelect.value === '借用') {
+        if (actionSelect.value === '借用設備') {
             if (currentStatusSelect.value === '外借') {
                 reasonLabel.textContent = '備註 - 外借對象 (必填)';
                 reasonInput.placeholder = '請輸入外借對象單位/姓名...';
@@ -259,19 +260,18 @@
         notifyEmailsInput.required = false;
         periodGroup.classList.add('hidden'); 
 
-        if (this.value === '借用') {
+        if (this.value === '借用設備') {
             periodGroup.classList.remove('hidden'); 
             statusGroup.classList.remove('hidden');
             locationGroup.classList.remove('hidden');
             
-            // 開啟加簽人欄位 (必填)
             cosignerGroup.classList.remove('hidden'); 
             cosignerLabel.textContent = '加簽人 E-Mail (必填)';
             cosignerInput.required = true;
 
             checkBorrowStatus(); 
         } 
-        else if (this.value === '申請歸還') {
+        else if (this.value === '歸還設備') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.remove('hidden'); 
             
@@ -283,7 +283,7 @@
             reasonInput.placeholder = '有什麼需要特別說明的嗎？(選填)';
             reasonInput.required = false;
         } 
-        else if (this.value === '二次加簽') {
+        else if (this.value === '加簽確認') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.remove('hidden'); 
             
@@ -310,7 +310,7 @@
             reasonInput.placeholder = '有什麼需要特別說明的嗎？(選填)';
             reasonInput.required = false;
         } 
-        else if (this.value === '報修') {
+        else if (this.value === '故障通報') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.add('hidden');    
             
@@ -322,7 +322,7 @@
             reasonInput.placeholder = '請簡述故障狀況...';
             reasonInput.required = true;
         }
-        else if (this.value === '送修') {
+        else if (this.value === '設備維修') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.add('hidden');    
             
@@ -344,7 +344,7 @@
         e.preventDefault();
         passwordError.classList.add('hidden');
 
-        if (actionSelect.value === '二次加簽') {
+        if (actionSelect.value === '加簽確認') {
             const ADMIN_PASSWORD = "8888"; 
             if (passwordInput.value !== ADMIN_PASSWORD) {
                 passwordError.classList.remove('hidden');
