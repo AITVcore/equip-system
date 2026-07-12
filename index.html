@@ -34,7 +34,7 @@
         <div class="form-group">
             <label for="action">動作</label>
             <select id="action" required>
-                <option value="借用">借用設備 (需二次加簽)</option>
+                <option value="借用">借用設備</option>
                 <option value="申請歸還">申請歸還</option>
                 <option value="二次加簽">二次加簽確認</option>
                 <option value="報修">設備報修</option>
@@ -150,6 +150,10 @@
             allRawData = data;
             loadingText.classList.add('hidden');
             form.classList.remove('hidden');
+            
+            // ★ 關鍵修復：主動觸發一次動作切換事件，讓預設的「借用設備」對應的加簽人欄位瞬間解除隱藏！
+            actionSelect.dispatchEvent(new Event('change'));
+            
             renderCategories(); 
         })
         .catch(err => {
@@ -165,7 +169,6 @@
         return allRawData.filter(item => {
             if (action === '借用') return item.status === '在庫';
             if (action === '申請歸還') return item.status === '借出中' && item.cStatus !== '待簽核' && item.borrower.toLowerCase() === email;
-            // ★ 需求 2：對應更名為「二次加簽」
             if (action === '二次加簽') return item.status === '申請中' || item.cStatus === '待簽核';
             if (action === '報修') return item.status !== '待維修' && item.status !== '維修中';
             if (action === '送修') return item.status === '待維修' || item.status === '在庫' || item.status === ''; 
@@ -210,7 +213,6 @@
         eligibleItems.forEach(item => {
             let opt = document.createElement('option');
             opt.value = item.id;
-            // ★ 需求 2：更名判定顯示文字
             if (actionSelect.value === '二次加簽') {
                 const typeText = (item.status === '申請中') ? '【借用申請】' : '【歸還申請】';
                 opt.textContent = `${typeText} ${item.name} ${item.id}`;
@@ -257,12 +259,12 @@
         notifyEmailsInput.required = false;
         periodGroup.classList.add('hidden'); 
 
-        // ★ 需求 1：「借用」表單增加「加簽人 E-Mail (必填)」
         if (this.value === '借用') {
             periodGroup.classList.remove('hidden'); 
             statusGroup.classList.remove('hidden');
             locationGroup.classList.remove('hidden');
             
+            // 開啟加簽人欄位 (必填)
             cosignerGroup.classList.remove('hidden'); 
             cosignerLabel.textContent = '加簽人 E-Mail (必填)';
             cosignerInput.required = true;
@@ -272,22 +274,26 @@
         else if (this.value === '申請歸還') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.remove('hidden'); 
+            
             cosignerGroup.classList.remove('hidden'); 
             cosignerLabel.textContent = '點收同仁/加簽人 E-Mail (必填)';
             cosignerInput.required = true;            
+            
             reasonLabel.textContent = '備註 (選填)';
             reasonInput.placeholder = '有什麼需要特別說明的嗎？(選填)';
             reasonInput.required = false;
         } 
-        // ★ 需求 2：對應更名為「二次加簽」
         else if (this.value === '二次加簽') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.remove('hidden'); 
+            
             cosignerGroup.classList.remove('hidden'); 
             cosignerLabel.textContent = '核准人員 E-Mail (必填)';
             cosignerInput.required = true;
+            
             passwordGroup.classList.remove('hidden'); 
             passwordInput.required = true;
+            
             reasonLabel.textContent = '點收/核准備註 (選填)';
             reasonInput.placeholder = '核准或點收狀況說明...';
             reasonInput.required = false;
@@ -295,9 +301,11 @@
         else if (this.value === '維修取回') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.remove('hidden'); 
+            
             notifyGroup.classList.remove('hidden'); 
             notifyLabel.textContent = '管理員/通知人員 E-Mail (必填)'; 
             notifyEmailsInput.required = true;
+            
             reasonLabel.textContent = '備註 (選填)';
             reasonInput.placeholder = '有什麼需要特別說明的嗎？(選填)';
             reasonInput.required = false;
@@ -305,9 +313,11 @@
         else if (this.value === '報修') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.add('hidden');    
+            
             notifyGroup.classList.remove('hidden'); 
             notifyLabel.textContent = '維修負責人/通知人員 E-Mail (必填)'; 
             notifyEmailsInput.required = true;
+            
             reasonLabel.textContent = '故障原因 (必填)';
             reasonInput.placeholder = '請簡述故障狀況...';
             reasonInput.required = true;
@@ -315,9 +325,11 @@
         else if (this.value === '送修') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.add('hidden');    
+            
             notifyGroup.classList.remove('hidden'); 
             notifyLabel.textContent = '相關同仁/通知人員 E-Mail (必填)'; 
             notifyEmailsInput.required = true; 
+            
             reasonLabel.textContent = '維修廠商 (必填)'; 
             reasonInput.placeholder = '請輸入維修廠商名稱...';
             reasonInput.required = true;
@@ -332,7 +344,6 @@
         e.preventDefault();
         passwordError.classList.add('hidden');
 
-        // ★ 需求 2：更名為二次加簽的密碼驗證
         if (actionSelect.value === '二次加簽') {
             const ADMIN_PASSWORD = "8888"; 
             if (passwordInput.value !== ADMIN_PASSWORD) {
@@ -363,7 +374,7 @@
             mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' }
         }).then(() => {
-            alert(sendData.action + " 紀錄已成功送出！並已發送信件給借用人與加簽同仁。");
+            alert(sendData.action + " 紀錄已成功送出！並已發送信件給相關人員。");
             window.location.reload(); 
         }).catch(err => {
             alert("傳送失敗");
