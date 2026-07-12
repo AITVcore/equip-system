@@ -40,7 +40,7 @@
                 <option value="故障通報">故障通報</option>
                 <option value="設備維修">設備維修</option>
                 <option value="維修取回">維修取回</option>
-            </select>
+                <option value="撤銷申請">撤銷申請</option> </select>
         </div>
 
         <div class="form-group">
@@ -151,7 +151,7 @@
             loadingText.classList.add('hidden');
             form.classList.remove('hidden');
             
-            // 主動觸發一次動作切換事件，載入預設選單的對應欄位
+            // 主動觸發一次動作切換事件，確保初始化排版無瑕疵
             actionSelect.dispatchEvent(new Event('change'));
             
             renderCategories(); 
@@ -162,18 +162,23 @@
         });
     };
 
+    // ★ 撤銷選單篩選核心：同仁只能在撤銷申請時看到「屬於自己暫存中」的單據 ★
     function getEligibleEquips() {
         const action = actionSelect.value;
         const email = userEmailInput.value.trim().toLowerCase();
 
         return allRawData.filter(item => {
-            // ★ 已全面替換為新動作名稱 ★
             if (action === '借用設備') return item.status === '在庫';
             if (action === '歸還設備') return item.status === '借出中' && item.cStatus !== '待簽核' && item.borrower.toLowerCase() === email;
             if (action === '加簽確認') return item.status === '申請中' || item.cStatus === '待簽核';
             if (action === '故障通報') return item.status !== '待維修' && item.status !== '維修中';
             if (action === '設備維修') return item.status === '待維修' || item.status === '在庫' || item.status === ''; 
             if (action === '維修取回') return item.status === '維修中' || item.status === '待維修';
+            
+            // ★ 撤銷申請動態條件：必須是該同仁自己名下在「申請中（借用）」或「待簽核（歸還）」的單據 ★
+            if (action === '撤銷申請') {
+                return (item.status === '申請中' || item.cStatus === '待簽核') && item.borrower.toLowerCase() === email;
+            }
             return false;
         });
     }
@@ -217,6 +222,9 @@
             if (actionSelect.value === '加簽確認') {
                 const typeText = (item.status === '申請中') ? '【借用申請】' : '【歸還申請】';
                 opt.textContent = `${typeText} ${item.name} ${item.id}`;
+            } else if (actionSelect.value === '撤銷申請') {
+                const typeText = (item.status === '申請中') ? '【撤回借用】' : '【撤回歸還】';
+                opt.textContent = `${typeText} ${item.name} ${item.id}`;
             } else {
                 opt.textContent = `${item.name} ${item.id}`; 
             }
@@ -247,6 +255,8 @@
     }
 
     currentStatusSelect.addEventListener('change', checkBorrowStatus);
+    
+    // 當 E-Mail 改變離開輸入框時，應重新連動計算下拉項目
     userEmailInput.addEventListener('blur', renderCategories);
     categorySelect.addEventListener('change', renderEquips);
 
@@ -334,6 +344,14 @@
             reasonInput.placeholder = '請輸入維修廠商名稱...';
             reasonInput.required = true;
         }
+        // ★ 撤銷申請特殊欄位排版設定 ★
+        else if (this.value === '撤銷申請') {
+            statusGroup.classList.add('hidden');
+            locationGroup.classList.add('hidden');    
+            reasonLabel.textContent = '撤銷原因/說明 (選填)';
+            reasonInput.placeholder = '請簡述撤銷申請的原因...';
+            reasonInput.required = false;
+        }
         
         renderCategories(); 
     });
@@ -374,7 +392,7 @@
             mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' }
         }).then(() => {
-            alert(sendData.action + " 紀錄已成功送出！並已發送信件給相關人員。");
+            alert(sendData.action + " 成功！系統已將狀態安全復位，並已同步發送通知信件。");
             window.location.reload(); 
         }).catch(err => {
             alert("傳送失敗");
