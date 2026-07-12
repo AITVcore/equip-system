@@ -36,7 +36,7 @@
             <select id="action" required>
                 <option value="借用">借用設備(需核准)</option>
                 <option value="申請歸還">申請歸還(需核准)</option>
-                <option value="主管加簽">加簽確認</option>
+                <option value="摩斯密碼">加簽確認</option>
                 <option value="報修">設備報修</option>
                 <option value="送修">送修 (維修中)</option>
                 <option value="維修取回">維修取回</option>
@@ -84,12 +84,12 @@
 
         <div class="form-group hidden" id="cosignerGroup">
             <label id="cosignerLabel" for="cosigner">加簽人/覆核人 E-Mail (必填)</label>
-            <input type="email" id="cosigner" placeholder="請輸入主管或覆核同仁的 E-Mail">
+            <input type="email" id="cosigner" placeholder="請輸入覆核同仁的 E-Mail">
         </div>
 
         <div class="form-group hidden" id="passwordGroup">
-            <label for="adminPassword">主管授權密碼 (必填)</label>
-            <input type="password" id="adminPassword" placeholder="請主管輸入授權驗證碼">
+            <label for="adminPassword">授權密碼 (必填)</label>
+            <input type="password" id="adminPassword" placeholder="請輸入授權驗證碼">
             <div id="passwordError" class="warning-text hidden">⚠️ 授權密碼錯誤，無法送出！</div>
         </div>
 
@@ -166,7 +166,7 @@
         return allRawData.filter(item => {
             if (action === '借用') return item.status === '在庫';
             if (action === '申請歸還') return item.status === '借出中' && item.cStatus !== '待簽核' && item.borrower.toLowerCase() === email;
-            if (action === '主管加簽') return item.status === '申請中' || item.cStatus === '待簽核';
+            if (action === '摩斯密碼') return item.status === '申請中' || item.cStatus === '待簽核';
             if (action === '報修') return item.status !== '待維修' && item.status !== '維修中';
             if (action === '送修') return item.status === '待維修' || item.status === '在庫' || item.status === ''; 
             if (action === '維修取回') return item.status === '維修中' || item.status === '待維修';
@@ -210,7 +210,7 @@
         eligibleItems.forEach(item => {
             let opt = document.createElement('option');
             opt.value = item.id;
-            if (actionSelect.value === '主管加簽') {
+            if (actionSelect.value === '摩斯密碼') {
                 const typeText = (item.status === '申請中') ? '【借用申請】' : '【歸還申請】';
                 opt.textContent = `${typeText} ${item.name} ${item.id}`;
             } else {
@@ -262,7 +262,7 @@
             locationGroup.classList.remove('hidden');
             
             notifyGroup.classList.remove('hidden'); 
-            notifyLabel.textContent = '審核主管/通知人員 E-Mail (必填)';
+            notifyLabel.textContent = '審核人員/通知人員 E-Mail (必填)';
             notifyEmailsInput.required = true;
             checkBorrowStatus(); 
         } 
@@ -276,11 +276,11 @@
             reasonInput.placeholder = '有什麼需要特別說明的嗎？(選填)';
             reasonInput.required = false;
         } 
-        else if (this.value === '主管加簽') {
+        else if (this.value === '摩斯密碼') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.remove('hidden'); 
             cosignerGroup.classList.remove('hidden'); 
-            cosignerLabel.textContent = '核准主管 E-Mail (必填)';
+            cosignerLabel.textContent = '核准人員 E-Mail (必填)';
             cosignerInput.required = true;
             passwordGroup.classList.remove('hidden'); 
             passwordInput.required = true;
@@ -302,7 +302,7 @@
             statusGroup.classList.add('hidden');
             locationGroup.classList.add('hidden');    
             notifyGroup.classList.remove('hidden'); 
-            notifyLabel.textContent = '維修負責人/通知人員 E-Mail (必填)'; 
+            notifyLabel.textContent = '相關同仁/通知人員 E-Mail (必填)'; 
             notifyEmailsInput.required = true;
             reasonLabel.textContent = '故障原因 (必填)';
             reasonInput.placeholder = '請簡述故障狀況...';
@@ -328,7 +328,7 @@
         e.preventDefault();
         passwordError.classList.add('hidden');
 
-        if (actionSelect.value === '主管加簽') {
+        if (actionSelect.value === '摩斯密碼') {
             const ADMIN_PASSWORD = "8888"; 
             if (passwordInput.value !== ADMIN_PASSWORD) {
                 passwordError.classList.remove('hidden');
