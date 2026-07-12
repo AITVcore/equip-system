@@ -36,7 +36,7 @@
             <select id="action" required>
                 <option value="借用">借用設備(需核准)</option>
                 <option value="申請歸還">申請歸還(需核准)</option>
-                <option value="摩斯密碼">加簽確認</option>
+                <option value="二次簽核">加簽確認</option>
                 <option value="報修">設備報修</option>
                 <option value="送修">送修 (維修中)</option>
                 <option value="維修取回">維修取回</option>
@@ -166,7 +166,7 @@
         return allRawData.filter(item => {
             if (action === '借用') return item.status === '在庫';
             if (action === '申請歸還') return item.status === '借出中' && item.cStatus !== '待簽核' && item.borrower.toLowerCase() === email;
-            if (action === '摩斯密碼') return item.status === '申請中' || item.cStatus === '待簽核';
+            if (action === '二次簽核') return item.status === '申請中' || item.cStatus === '待簽核';
             if (action === '報修') return item.status !== '待維修' && item.status !== '維修中';
             if (action === '送修') return item.status === '待維修' || item.status === '在庫' || item.status === ''; 
             if (action === '維修取回') return item.status === '維修中' || item.status === '待維修';
@@ -210,7 +210,7 @@
         eligibleItems.forEach(item => {
             let opt = document.createElement('option');
             opt.value = item.id;
-            if (actionSelect.value === '摩斯密碼') {
+            if (actionSelect.value === '二次加簽') {
                 const typeText = (item.status === '申請中') ? '【借用申請】' : '【歸還申請】';
                 opt.textContent = `${typeText} ${item.name} ${item.id}`;
             } else {
@@ -276,7 +276,7 @@
             reasonInput.placeholder = '有什麼需要特別說明的嗎？(選填)';
             reasonInput.required = false;
         } 
-        else if (this.value === '摩斯密碼') {
+        else if (this.value === '二次加簽') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.remove('hidden'); 
             cosignerGroup.classList.remove('hidden'); 
@@ -328,7 +328,7 @@
         e.preventDefault();
         passwordError.classList.add('hidden');
 
-        if (actionSelect.value === '摩斯密碼') {
+        if (actionSelect.value === '二次加簽') {
             const ADMIN_PASSWORD = "8888"; 
             if (passwordInput.value !== ADMIN_PASSWORD) {
                 passwordError.classList.remove('hidden');
