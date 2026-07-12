@@ -82,9 +82,9 @@
             </select>
         </div>
 
-        <div class="form-group hidden" id="cosignerGroup">
+        <div class="form-group" id="cosignerGroup">
             <label for="cosigner">加簽人/覆核人 E-Mail (必填)</label>
-            <input type="email" id="cosigner" placeholder="請輸入點收主管或同仁的 E-Mail">
+            <input type="email" id="cosigner" required placeholder="請輸入點收主管或同仁的 E-Mail">
         </div>
 
         <div class="form-group hidden" id="passwordGroup">
@@ -94,7 +94,7 @@
         </div>
 
         <div class="form-group hidden" id="notifyGroup">
-            <label for="notifyEmails">通知人員 E-Mail (選填)</label>
+            <label for="notifyEmails" id="notifyLabel">通知人員 E-Mail</label>
             <input type="email" multiple id="notifyEmails" placeholder="多人請用英文逗號(,)隔開">
         </div>
 
@@ -118,9 +118,10 @@
     const categorySelect = document.getElementById('categorySelect');
     const equipSelect = document.getElementById('equipSelect');
     const actionSelect = document.getElementById('action');
-    const periodGroup = document.getElementById('periodGroup');     // 週期群組
-    const periodSelect = document.getElementById('period');         // 週期下拉選單
+    const periodGroup = document.getElementById('periodGroup');     
+    const periodSelect = document.getElementById('period');         
     const statusGroup = document.getElementById('statusGroup');
+    const currentStatusSelect = document.getElementById('currentStatus');
     const locationGroup = document.getElementById('locationGroup');
     const cosignerGroup = document.getElementById('cosignerGroup'); 
     const cosignerInput = document.getElementById('cosigner');     
@@ -128,6 +129,7 @@
     const passwordInput = document.getElementById('adminPassword');
     const passwordError = document.getElementById('passwordError');
     const notifyGroup = document.getElementById('notifyGroup');     
+    const notifyLabel = document.getElementById('notifyLabel');     
     const notifyEmailsInput = document.getElementById('notifyEmails'); 
     const reasonLabel = document.getElementById('reasonLabel');
     const reasonInput = document.getElementById('reason');
@@ -219,6 +221,23 @@
         submitBtn.disabled = !equipSelect.value;
     }
 
+    // ★ 需求 5：動態切換備註欄位是否必填
+    function checkBorrowStatus() {
+        if (actionSelect.value === '借用') {
+            if (currentStatusSelect.value === '外借') {
+                reasonLabel.textContent = '備註 - 外借對象 (必填)';
+                reasonInput.placeholder = '請輸入外借對象單位/姓名...';
+                reasonInput.required = true;
+            } else {
+                reasonLabel.textContent = '備註 (選填)';
+                reasonInput.placeholder = '有什麼需要特別說明的嗎？(選填)';
+                reasonInput.required = false;
+            }
+        }
+    }
+
+    // 監聽狀態改變
+    currentStatusSelect.addEventListener('change', checkBorrowStatus);
     userEmailInput.addEventListener('blur', renderCategories);
     categorySelect.addEventListener('change', renderEquips);
 
@@ -229,15 +248,18 @@
         passwordInput.required = false;
         passwordError.classList.add('hidden');
         notifyGroup.classList.add('hidden'); 
-        periodGroup.classList.add('hidden'); // 預設隱藏週期欄位
+        notifyEmailsInput.required = false;
+        periodGroup.classList.add('hidden'); 
 
         if (this.value === '借用') {
-            periodGroup.classList.remove('hidden'); // ★ 借用時展開週期選單 ★
+            periodGroup.classList.remove('hidden'); 
             statusGroup.classList.remove('hidden');
-            locationGroup.classList.remove('hidden'); 
-            reasonLabel.textContent = '備註 (選填)';
-            reasonInput.placeholder = '有什麼需要特別說明的嗎？(選填)';
-            reasonInput.required = false;
+            locationGroup.classList.remove('hidden');
+            
+            cosignerGroup.classList.remove('hidden'); // ★ 需求 4：借用加入加簽人機制
+            cosignerInput.required = true;
+
+            checkBorrowStatus(); // ★ 需求 5：觸發外借判定
         } 
         else if (this.value === '申請歸還') {
             statusGroup.classList.add('hidden');
@@ -263,6 +285,8 @@
             statusGroup.classList.add('hidden');
             locationGroup.classList.remove('hidden'); 
             notifyGroup.classList.remove('hidden'); 
+            notifyLabel.textContent = '通知人員 E-Mail (必填)'; // ★ 需求 3：改為必填
+            notifyEmailsInput.required = true;
             reasonLabel.textContent = '備註 (選填)';
             reasonInput.placeholder = '有什麼需要特別說明的嗎？(選填)';
             reasonInput.required = false;
@@ -271,6 +295,8 @@
             statusGroup.classList.add('hidden');
             locationGroup.classList.add('hidden');    
             notifyGroup.classList.remove('hidden'); 
+            notifyLabel.textContent = '通知人員 E-Mail (必填)'; // ★ 需求 1：改為必填
+            notifyEmailsInput.required = true;
             reasonLabel.textContent = '故障原因 (必填)';
             reasonInput.placeholder = '請簡述故障狀況...';
             reasonInput.required = true;
@@ -313,7 +339,7 @@
             reason: reasonInput.value,
             cosigner: cosignerInput.value,
             notifyEmails: notifyEmailsInput.value,
-            period: periodGroup.classList.contains('hidden') ? "" : periodSelect.value // ★ 打包週期資料
+            period: periodGroup.classList.contains('hidden') ? "" : periodSelect.value 
         };
 
         fetch(GAS_URL, {
