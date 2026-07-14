@@ -264,52 +264,57 @@ function renderEquips() {
         });
 
         // 渲染函式：建立分組標題與清單
-        function renderGroup(groupName, items) {
-            if (items.length === 0) return;
+	function renderEquips() {
+        const cat = document.getElementById('categorySelect').value;
+        equipCheckboxesContainer.innerHTML = '';
+        let items = allRawData.filter(i => cat ? i.category === cat : true);
+        
+        const groups = { 'MPS': [], 'AITg': [], '其他': [] }; // 對調了順序
+        items.forEach(i => (groups[i.location] ? groups[i.location].push(i) : groups['其他'].push(i)));
 
-            // 建立區塊標題
+        // 渲染順序：先渲染 MPS，再渲染 AITg
+        const renderOrder = ['MPS', 'AITg', '其他'];
+        
+        renderOrder.forEach(gName => {
+            if (groups[gName].length === 0) return;
+            
             let title = document.createElement('div');
-            title.style.cssText = "padding: 10px 5px; font-weight: bold; color: #06C755; border-bottom: 2px solid #06C755; margin-top: 10px; margin-bottom: 5px; font-size: 14px;";
-            title.textContent = `📍 ${groupName} 設備清單`;
+            title.style.cssText = "padding: 8px 5px; font-weight: bold; color: #06C755; border-bottom: 1px solid #eee; margin-top: 10px; font-size: 13px;";
+            title.textContent = `📍 ${gName} 區塊`;
             equipCheckboxesContainer.appendChild(title);
 
-            // 建立該群組的設備項目
-            items.sort((a, b) => a.name.localeCompare(b.name)).forEach(item => {
+            groups[gName].sort((a,b) => a.name.localeCompare(b.name)).forEach(item => {
                 let label = document.createElement('label');
                 label.className = 'checkbox-item';
-                
-                let cb = document.createElement('input');
-                cb.type = 'checkbox';
-                cb.value = item.id;
-                if (selectedEquipsSet.has(item.id)) cb.checked = true;
-                cb.addEventListener('change', handleCheckboxChange);
-
-                // 簡化文字顯示：僅顯示名稱與編號
-                let text = `${item.name} (${item.id})`;
-                
-                label.appendChild(cb);
-                label.appendChild(document.createTextNode(text));
+                label.innerHTML = `<input type="checkbox" value="${item.id}" ${selectedEquipsSet.has(item.id)?'checked':''}> ${item.name} (${item.id})`;
+                label.querySelector('input').addEventListener('change', (e) => {
+                    e.target.checked ? selectedEquipsSet.add(item.id) : selectedEquipsSet.delete(item.id);
+                    updateBasket();
+                });
                 equipCheckboxesContainer.appendChild(label);
             });
-        }
-
-        // 依序渲染 AITg, MPS, 其他
-        renderGroup('AITg', groups['AITg']);
-        renderGroup('MPS', groups['MPS']);
-        renderGroup('其他', groups['其他']);
-
-        if (eligibleItems.length === 0) {
-            equipCheckboxesContainer.innerHTML = '<div style="color:#999; font-size:14px; text-align:center; padding: 20px 0;">無符合條件的設備</div>';
-        }
-        
-        validateFormSubmitState();
+        });
     }
 
-    function validateFormSubmitState() {
-        if (selectedEquipsSet.size === 0) {
-            submitBtn.disabled = true;
-            statusWarning.classList.remove('hidden');
+    // 2. 修改 updateBasket 函式：將產品編號顯示在已選清單中
+    function updateBasket() {
+        const basket = document.getElementById('selectedBasket');
+        basket.innerHTML = '';
+        if(selectedEquipsSet.size > 0) {
+            basket.classList.remove('hidden');
+            selectedEquipsSet.forEach(id => {
+                const item = allRawData.find(i => i.id === id);
+                // 這裡加入了 item.id 的顯示
+                basket.innerHTML += `<div class="selected-chip">
+                    ${item.name} (${item.id}) 
+                    <span onclick="remove('${id}')">×</span>
+                </div>`;
+            });
         } else {
+            basket.classList.add('hidden');
+        }
+    }
+		else {
             submitBtn.disabled = false;
             statusWarning.classList.add('hidden');
             submitBtn.textContent = `送出資料 (已選 ${selectedEquipsSet.size} 項)`;
