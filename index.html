@@ -120,7 +120,7 @@
 
 <script>
     // === ⚠️ 請置換為你最新的 GAS 網頁應用程式網址 ===
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbx4sP7kSy1FhIQFLKFSojObQcYja6fmyIsnr6tMBPnkFMqEdqpTlhne51OEohh1--M2Hw/exec"; 
+    const GAS_URL = "YOUR_GAS_WEB_APP_URL"; 
 
     let allRawData = [];
     let selectedEquipsSet = new Set(); 
@@ -244,10 +244,7 @@
         });
     }
 
-<script>
-    // ... (其他程式碼維持不變，僅調整 renderEquips 函式)
-
-    function renderEquips() {
+function renderEquips() {
         const selectedCat = categorySelect.value;
         equipCheckboxesContainer.innerHTML = '';
         
@@ -308,8 +305,6 @@
         validateFormSubmitState();
     }
 
-    // ... (其餘程式碼維持不變)
-</script>
     function validateFormSubmitState() {
         if (selectedEquipsSet.size === 0) {
             submitBtn.disabled = true;
