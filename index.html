@@ -244,6 +244,9 @@
         });
     }
 
+<script>
+    // ... (其他程式碼維持不變，僅調整 renderEquips 函式)
+
     function renderEquips() {
         const selectedCat = categorySelect.value;
         equipCheckboxesContainer.innerHTML = '';
@@ -253,51 +256,60 @@
             eligibleItems = eligibleItems.filter(item => item.category === selectedCat);
         }
 
-        eligibleItems.sort((a, b) => {
-            const aSel = selectedEquipsSet.has(a.id);
-            const bSel = selectedEquipsSet.has(b.id);
-            if (aSel && !bSel) return -1;
-            if (!aSel && bSel) return 1;
-            return 0;
+        // 🌟【分組邏輯】：依據位置進行歸類
+        const groups = { 'AITg': [], 'MPS': [], '其他': [] };
+        eligibleItems.forEach(item => {
+            if (groups.hasOwnProperty(item.location)) {
+                groups[item.location].push(item);
+            } else {
+                groups['其他'].push(item);
+            }
         });
 
-        if (eligibleItems.length === 0) {
-            equipCheckboxesContainer.innerHTML = '<div style="color:#999; font-size:14px; text-align:center; padding: 20px 0;">無符合條件的設備</div>';
-        } else {
-            eligibleItems.forEach(item => {
+        // 渲染函式：建立分組標題與清單
+        function renderGroup(groupName, items) {
+            if (items.length === 0) return;
+
+            // 建立區塊標題
+            let title = document.createElement('div');
+            title.style.cssText = "padding: 10px 5px; font-weight: bold; color: #06C755; border-bottom: 2px solid #06C755; margin-top: 10px; margin-bottom: 5px; font-size: 14px;";
+            title.textContent = `📍 ${groupName} 設備清單`;
+            equipCheckboxesContainer.appendChild(title);
+
+            // 建立該群組的設備項目
+            items.sort((a, b) => a.name.localeCompare(b.name)).forEach(item => {
                 let label = document.createElement('label');
                 label.className = 'checkbox-item';
                 
                 let cb = document.createElement('input');
                 cb.type = 'checkbox';
                 cb.value = item.id;
-                
-                if (selectedEquipsSet.has(item.id)) {
-                    cb.checked = true;
-                }
-                
+                if (selectedEquipsSet.has(item.id)) cb.checked = true;
                 cb.addEventListener('change', handleCheckboxChange);
 
-                // 🌟【關鍵優化】：加入當前位置的顯示
-                let locStr = item.location ? item.location : '位置未標示';
-                let text = `${item.name} (${item.id}) - 📍${locStr}`;
-                
-                if (actionSelect.value === '加簽確認') {
-                    const typeText = (item.status === '申請中') ? '【借用】' : '【歸還】';
-                    text = typeText + ' ' + text;
-                } else if (actionSelect.value === '撤銷申請') {
-                    const typeText = (item.status === '申請中') ? '【撤回借用】' : '【撤回歸還】';
-                    text = typeText + ' ' + text;
-                }
+                // 簡化文字顯示：僅顯示名稱與編號
+                let text = `${item.name} (${item.id})`;
                 
                 label.appendChild(cb);
                 label.appendChild(document.createTextNode(text));
                 equipCheckboxesContainer.appendChild(label);
             });
         }
+
+        // 依序渲染 AITg, MPS, 其他
+        renderGroup('AITg', groups['AITg']);
+        renderGroup('MPS', groups['MPS']);
+        renderGroup('其他', groups['其他']);
+
+        if (eligibleItems.length === 0) {
+            equipCheckboxesContainer.innerHTML = '<div style="color:#999; font-size:14px; text-align:center; padding: 20px 0;">無符合條件的設備</div>';
+        }
+        
         validateFormSubmitState();
     }
 
+    // ... (其餘程式碼維持不變)
+</script>
     function validateFormSubmitState() {
         if (selectedEquipsSet.size === 0) {
             submitBtn.disabled = true;
