@@ -278,7 +278,10 @@
                 
                 cb.addEventListener('change', handleCheckboxChange);
 
-                let text = item.name + ' (' + item.id + ')';
+                // 🌟【關鍵優化】：加入當前位置的顯示
+                let locStr = item.location ? item.location : '位置未標示';
+                let text = `${item.name} (${item.id}) - 📍${locStr}`;
+                
                 if (actionSelect.value === '加簽確認') {
                     const typeText = (item.status === '申請中') ? '【借用】' : '【歸還】';
                     text = typeText + ' ' + text;
@@ -295,7 +298,6 @@
         validateFormSubmitState();
     }
 
-    // 🌟 核心防呆連動優化函數
     function validateFormSubmitState() {
         if (selectedEquipsSet.size === 0) {
             submitBtn.disabled = true;
@@ -305,12 +307,10 @@
             statusWarning.classList.add('hidden');
             submitBtn.textContent = `送出資料 (已選 ${selectedEquipsSet.size} 項)`;
 
-            // 🌟【智慧防呆連動核心】：自動預設設備當前在庫的實際位置
             const firstSelectedId = Array.from(selectedEquipsSet)[0];
             const activeItem = allRawData.find(i => i.id === firstSelectedId);
             
             if (activeItem && activeItem.location) {
-                // 檢查下拉選單中是否存在該位置選項，若有，則自動完成秒級切換預設！
                 if ([...currentStatusSelect.options].some(o => o.value === activeItem.location) || [...currentLocationSelect = document.getElementById('currentLocation').options].some(o => o.value === activeItem.location)) {
                     document.getElementById('currentLocation').value = activeItem.location;
                 }
