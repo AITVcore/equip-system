@@ -17,6 +17,11 @@
         .btn:disabled { background-color: #cccccc; cursor: not-allowed; }
         #loading { text-align: center; color: #666; font-size: 14px; margin-top: 10px; }
         .warning-text { color: #e74c3c; font-size: 13px; font-weight: bold; margin-top: 5px; }
+        /* 複選清單專用樣式 */
+        .checkbox-list { max-height: 200px; overflow-y: auto; border: 1px solid #ccc; border-radius: 6px; padding: 10px; background-color: white; }
+        .checkbox-item { display: flex; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #eee; cursor: pointer; font-weight: normal; color: #333; }
+        .checkbox-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .checkbox-item input { width: auto; margin-right: 12px; transform: scale(1.3); cursor: pointer; }
     </style>
 </head>
 <body>
@@ -28,7 +33,7 @@
     <form id="equipForm" class="hidden">
         <div class="form-group">
             <label for="userEmail">員工 E-Mail</label>
-            <input type="email" id="userEmail" required placeholder="yourname@ait-group.com">
+            <input type="email" id="userEmail" required placeholder="yourname@company.com">
         </div>
 
         <div class="form-group">
@@ -40,22 +45,23 @@
                 <option value="故障通報">故障通報</option>
                 <option value="設備維修">設備維修</option>
                 <option value="維修取回">維修取回</option>
-                <option value="撤銷申請">撤銷申請</option> </select>
-        </div>
-
-        <div class="form-group">
-            <label for="categorySelect">第一步：選擇設備類別</label>
-            <select id="categorySelect" required>
-                <option value="">-- 請選擇類別 --</option>
+                <option value="撤銷申請">撤銷申請</option>
             </select>
         </div>
 
         <div class="form-group">
-            <label for="equipSelect">第二步：選擇特定設備</label>
-            <select id="equipSelect" required disabled>
-                <option value="">-- 請先選擇類別 --</option>
+            <label for="categorySelect">第一步：篩選設備類別 (選填)</label>
+            <select id="categorySelect">
+                <option value="">-- 顯示全部類別 --</option>
             </select>
-            <div id="statusWarning" class="warning-text hidden"></div>
+        </div>
+
+        <div class="form-group">
+            <label>第二步：選擇特定設備 (可複選)</label>
+            <div id="equipCheckboxes" class="checkbox-list">
+                <div style="color:#999; font-size:14px; text-align:center;">載入中...</div>
+            </div>
+            <div id="statusWarning" class="warning-text hidden">⚠️ 請至少勾選一項設備</div>
         </div>
 
         <div class="form-group" id="periodGroup">
@@ -104,7 +110,7 @@
         </div>
 
         <button type="submit" class="btn" id="submitBtn">送出資料</button>
-        <div id="submitLoading" style="display:none; text-align:center; color:#666; margin-top:10px;">資料傳送中...</div>
+        <div id="submitLoading" style="display:none; text-align:center; color:#666; margin-top:10px;">批次傳送中，請稍候...</div>
     </form>
 </div>
 
@@ -113,10 +119,12 @@
     const GAS_URL = "https://script.google.com/macros/s/AKfycbx4sP7kSy1FhIQFLKFSojObQcYja6fmyIsnr6tMBPnkFMqEdqpTlhne51OEohh1--M2Hw/exec"; 
 
     let allRawData = [];
+    let selectedEquipsSet = new Set(); // ★ 新增：記憶勾選狀態的集合
+
     const form = document.getElementById('equipForm');
     const loadingText = document.getElementById('loading');
     const categorySelect = document.getElementById('categorySelect');
-    const equipSelect = document.getElementById('equipSelect');
+    const equipCheckboxesContainer = document.getElementById('equipCheckboxes'); // ★ 更新
     const actionSelect = document.getElementById('action');
     const periodGroup = document.getElementById('periodGroup');     
     const periodSelect = document.getElementById('period');         
@@ -150,10 +158,7 @@
             allRawData = data;
             loadingText.classList.add('hidden');
             form.classList.remove('hidden');
-            
-            // 主動觸發一次動作切換事件，確保初始化排版無瑕疵
             actionSelect.dispatchEvent(new Event('change'));
-            
             renderCategories(); 
         })
         .catch(err => {
@@ -162,7 +167,6 @@
         });
     };
 
-    // ★ 撤銷選單篩選核心：同仁只能在撤銷申請時看到「屬於自己暫存中」的單據 ★
     function getEligibleEquips() {
         const action = actionSelect.value;
         const email = userEmailInput.value.trim().toLowerCase();
@@ -174,11 +178,7 @@
             if (action === '故障通報') return item.status !== '待維修' && item.status !== '維修中';
             if (action === '設備維修') return item.status === '待維修' || item.status === '在庫' || item.status === ''; 
             if (action === '維修取回') return item.status === '維修中' || item.status === '待維修';
-            
-            // ★ 撤銷申請動態條件：必須是該同仁自己名下在「申請中（借用）」或「待簽核（歸還）」的單據 ★
-            if (action === '撤銷申請') {
-                return (item.status === '申請中' || item.cStatus === '待簽核') && item.borrower.toLowerCase() === email;
-            }
+            if (action === '撤銷申請') return (item.status === '申請中' || item.cStatus === '待簽核') && item.borrower.toLowerCase() === email;
             return false;
         });
     }
@@ -191,7 +191,7 @@
             catCounts[item.category] = (catCounts[item.category] || 0) + 1;
         });
 
-        categorySelect.innerHTML = '<option value="">-- 請選擇類別 --</option>';
+        categorySelect.innerHTML = '<option value="">-- 顯示全部類別 --</option>';
         Object.keys(catCounts).forEach(cat => {
             let opt = document.createElement('option');
             opt.value = cat;
@@ -199,45 +199,73 @@
             categorySelect.appendChild(opt);
         });
 
-        equipSelect.innerHTML = '<option value="">-- 請先選擇類別 --</option>';
-        equipSelect.disabled = true;
-        validateFormSubmitState(); 
+        renderEquips(); 
     }
 
+    // ★ 處理勾選狀態變更
+    function handleCheckboxChange(e) {
+        if (e.target.checked) {
+            selectedEquipsSet.add(e.target.value);
+        } else {
+            selectedEquipsSet.delete(e.target.value);
+        }
+        validateFormSubmitState();
+    }
+
+    // ★ 重新渲染智慧複選清單
     function renderEquips() {
         const selectedCat = categorySelect.value;
-        equipSelect.innerHTML = '<option value="">-- 請選擇設備 --</option>';
+        equipCheckboxesContainer.innerHTML = '';
         
-        if (!selectedCat) {
-            equipSelect.disabled = true;
-            validateFormSubmitState();
-            return;
+        let eligibleItems = getEligibleEquips();
+        if (selectedCat) {
+            eligibleItems = eligibleItems.filter(item => item.category === selectedCat);
         }
 
-        const eligibleItems = getEligibleEquips().filter(item => item.category === selectedCat);
+        if (eligibleItems.length === 0) {
+            equipCheckboxesContainer.innerHTML = '<div style="color:#999; font-size:14px; text-align:center; padding: 20px 0;">無符合條件的設備</div>';
+        } else {
+            eligibleItems.forEach(item => {
+                let label = document.createElement('label');
+                label.className = 'checkbox-item';
+                
+                let cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.value = item.id;
+                
+                // 恢復記憶中的打勾狀態
+                if (selectedEquipsSet.has(item.id)) {
+                    cb.checked = true;
+                }
+                
+                cb.addEventListener('change', handleCheckboxChange);
 
-        eligibleItems.forEach(item => {
-            let opt = document.createElement('option');
-            opt.value = item.id;
-            if (actionSelect.value === '加簽確認') {
-                const typeText = (item.status === '申請中') ? '【借用申請】' : '【歸還申請】';
-                opt.textContent = `${typeText} ${item.name} ${item.id}`;
-            } else if (actionSelect.value === '撤銷申請') {
-                const typeText = (item.status === '申請中') ? '【撤回借用】' : '【撤回歸還】';
-                opt.textContent = `${typeText} ${item.name} ${item.id}`;
-            } else {
-                opt.textContent = `${item.name} ${item.id}`; 
-            }
-            equipSelect.appendChild(opt);
-        });
-
-        equipSelect.disabled = false;
+                let text = item.name + ' (' + item.id + ')';
+                if (actionSelect.value === '加簽確認') {
+                    const typeText = (item.status === '申請中') ? '【借用】' : '【歸還】';
+                    text = typeText + ' ' + text;
+                } else if (actionSelect.value === '撤銷申請') {
+                    const typeText = (item.status === '申請中') ? '【撤回借用】' : '【撤回歸還】';
+                    text = typeText + ' ' + text;
+                }
+                
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(text));
+                equipCheckboxesContainer.appendChild(label);
+            });
+        }
         validateFormSubmitState();
     }
 
     function validateFormSubmitState() {
-        statusWarning.classList.add('hidden');
-        submitBtn.disabled = !equipSelect.value;
+        if (selectedEquipsSet.size === 0) {
+            submitBtn.disabled = true;
+            statusWarning.classList.remove('hidden');
+        } else {
+            submitBtn.disabled = false;
+            statusWarning.classList.add('hidden');
+            submitBtn.textContent = `送出資料 (已選 ${selectedEquipsSet.size} 項)`; // 動態更新按鈕文字
+        }
     }
 
     function checkBorrowStatus() {
@@ -255,12 +283,15 @@
     }
 
     currentStatusSelect.addEventListener('change', checkBorrowStatus);
-    
-    // 當 E-Mail 改變離開輸入框時，應重新連動計算下拉項目
-    userEmailInput.addEventListener('blur', renderCategories);
+    userEmailInput.addEventListener('blur', function() {
+        selectedEquipsSet.clear(); // 切換員工信箱時，清空選取
+        renderCategories();
+    });
     categorySelect.addEventListener('change', renderEquips);
 
     actionSelect.addEventListener('change', function() {
+        selectedEquipsSet.clear(); // 切換動作時，必須清空已選項目防呆
+        
         cosignerGroup.classList.add('hidden');
         cosignerInput.required = false;
         passwordGroup.classList.add('hidden');
@@ -344,7 +375,6 @@
             reasonInput.placeholder = '請輸入維修廠商名稱...';
             reasonInput.required = true;
         }
-        // ★ 撤銷申請特殊欄位排版設定 ★
         else if (this.value === '撤銷申請') {
             statusGroup.classList.add('hidden');
             locationGroup.classList.add('hidden');    
@@ -355,8 +385,6 @@
         
         renderCategories(); 
     });
-
-    equipSelect.addEventListener('change', validateFormSubmitState);
 
     form.addEventListener('submit', function(e) {
         e.preventDefault();
@@ -374,9 +402,10 @@
         document.getElementById('submitLoading').style.display = 'block';
         localStorage.setItem('savedEmail', userEmailInput.value);
 
+        // ★ 核心變更：將 equipId 改為陣列傳輸
         const sendData = {
             userEmail: userEmailInput.value,
-            equipId: equipSelect.value,
+            equipId: Array.from(selectedEquipsSet), 
             action: actionSelect.value,
             currentStatus: document.getElementById('currentStatus').value,
             currentLocation: document.getElementById('currentLocation').value,
@@ -392,7 +421,7 @@
             mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' }
         }).then(() => {
-            alert(sendData.action + " 成功！系統已將狀態安全復位，並已同步發送通知信件。");
+            alert(sendData.action + " 成功！已批次處理 " + selectedEquipsSet.size + " 項設備，並同步發送通知信。");
             window.location.reload(); 
         }).catch(err => {
             alert("傳送失敗");
