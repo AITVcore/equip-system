@@ -17,11 +17,18 @@
         .btn:disabled { background-color: #cccccc; cursor: not-allowed; }
         #loading { text-align: center; color: #666; font-size: 14px; margin-top: 10px; }
         .warning-text { color: #e74c3c; font-size: 13px; font-weight: bold; margin-top: 5px; }
-        /* 複選清單專用樣式 */
+        
+        /* 複選清單與提籃樣式 */
         .checkbox-list { max-height: 200px; overflow-y: auto; border: 1px solid #ccc; border-radius: 6px; padding: 10px; background-color: white; }
         .checkbox-item { display: flex; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #eee; cursor: pointer; font-weight: normal; color: #333; }
         .checkbox-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
         .checkbox-item input { width: auto; margin-right: 12px; transform: scale(1.3); cursor: pointer; }
+        
+        /* 🌟 新增：已選標籤提籃的精美樣式 */
+        .selected-basket { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; padding: 12px; background-color: #f0f7ff; border-radius: 6px; border: 1px dashed #06C755; }
+        .selected-chip { background-color: #06C755; color: white; padding: 5px 10px; border-radius: 15px; font-size: 13px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .selected-chip span { cursor: pointer; font-weight: bold; background: rgba(255,255,255,0.3); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .selected-chip span:hover { background: rgba(255,255,255,0.8); color: #d32f2f; }
     </style>
 </head>
 <body>
@@ -58,6 +65,10 @@
 
         <div class="form-group">
             <label>第二步：選擇特定設備 (可複選)</label>
+            
+            <!-- 🌟 新增：已選項目提籃區塊 -->
+            <div id="selectedBasket" class="selected-basket hidden"></div>
+
             <div id="equipCheckboxes" class="checkbox-list">
                 <div style="color:#999; font-size:14px; text-align:center;">載入中...</div>
             </div>
@@ -119,12 +130,12 @@
     const GAS_URL = "https://script.google.com/macros/s/AKfycbx4sP7kSy1FhIQFLKFSojObQcYja6fmyIsnr6tMBPnkFMqEdqpTlhne51OEohh1--M2Hw/exec"; 
 
     let allRawData = [];
-    let selectedEquipsSet = new Set(); // ★ 新增：記憶勾選狀態的集合
+    let selectedEquipsSet = new Set(); 
 
     const form = document.getElementById('equipForm');
     const loadingText = document.getElementById('loading');
     const categorySelect = document.getElementById('categorySelect');
-    const equipCheckboxesContainer = document.getElementById('equipCheckboxes'); // ★ 更新
+    const equipCheckboxesContainer = document.getElementById('equipCheckboxes'); 
     const actionSelect = document.getElementById('action');
     const periodGroup = document.getElementById('periodGroup');     
     const periodSelect = document.getElementById('period');         
@@ -202,7 +213,7 @@
         renderEquips(); 
     }
 
-    // ★ 處理勾選狀態變更
+    // 處理勾選狀態變更
     function handleCheckboxChange(e) {
         if (e.target.checked) {
             selectedEquipsSet.add(e.target.value);
@@ -212,7 +223,37 @@
         validateFormSubmitState();
     }
 
-    // ★ 重新渲染智慧複選清單
+    // 🌟 新增：由提籃專用的快速刪除功能
+    window.removeEquip = function(id) {
+        selectedEquipsSet.delete(id);
+        const cb = document.querySelector(`input[value="${id}"]`);
+        if (cb) cb.checked = false; // 如果該設備剛好在當前畫面上，同步取消勾選
+        validateFormSubmitState();
+    };
+
+    // 🌟 新增：動態更新「已選項目提籃」
+    function updateSelectedBasket() {
+        const basket = document.getElementById('selectedBasket');
+        if (selectedEquipsSet.size === 0) {
+            basket.classList.add('hidden');
+            basket.innerHTML = '';
+            return;
+        }
+        
+        basket.classList.remove('hidden');
+        basket.innerHTML = '<div style="width: 100%; font-size: 13px; color: #333; margin-bottom: 5px; font-weight: bold;">✅ 目前已確認選取的設備：</div>';
+
+        selectedEquipsSet.forEach(id => {
+            const item = allRawData.find(i => i.id === id);
+            const itemName = item ? item.name : id;
+
+            let chip = document.createElement('div');
+            chip.className = 'selected-chip';
+            chip.innerHTML = `${itemName} <span onclick="removeEquip('${id}')">×</span>`;
+            basket.appendChild(chip);
+        });
+    }
+
     function renderEquips() {
         const selectedCat = categorySelect.value;
         equipCheckboxesContainer.innerHTML = '';
@@ -221,6 +262,15 @@
         if (selectedCat) {
             eligibleItems = eligibleItems.filter(item => item.category === selectedCat);
         }
+
+        // 🌟 核心優化：將已經勾選的設備強制排序到最頂部，方便同仁瀏覽
+        eligibleItems.sort((a, b) => {
+            const aSel = selectedEquipsSet.has(a.id);
+            const bSel = selectedEquipsSet.has(b.id);
+            if (aSel && !bSel) return -1;
+            if (!aSel && bSel) return 1;
+            return 0; // 若狀態相同，維持原順序
+        });
 
         if (eligibleItems.length === 0) {
             equipCheckboxesContainer.innerHTML = '<div style="color:#999; font-size:14px; text-align:center; padding: 20px 0;">無符合條件的設備</div>';
@@ -264,8 +314,9 @@
         } else {
             submitBtn.disabled = false;
             statusWarning.classList.add('hidden');
-            submitBtn.textContent = `送出資料 (已選 ${selectedEquipsSet.size} 項)`; // 動態更新按鈕文字
+            submitBtn.textContent = `送出資料 (已選 ${selectedEquipsSet.size} 項)`;
         }
+        updateSelectedBasket(); // 每次驗證狀態時，同步更新畫面上方的提籃
     }
 
     function checkBorrowStatus() {
@@ -283,14 +334,18 @@
     }
 
     currentStatusSelect.addEventListener('change', checkBorrowStatus);
+    
     userEmailInput.addEventListener('blur', function() {
         selectedEquipsSet.clear(); // 切換員工信箱時，清空選取
+        validateFormSubmitState();
         renderCategories();
     });
+    
     categorySelect.addEventListener('change', renderEquips);
 
     actionSelect.addEventListener('change', function() {
-        selectedEquipsSet.clear(); // 切換動作時，必須清空已選項目防呆
+        selectedEquipsSet.clear(); // 切換動作時，清空選取防呆
+        validateFormSubmitState();
         
         cosignerGroup.classList.add('hidden');
         cosignerInput.required = false;
@@ -402,7 +457,6 @@
         document.getElementById('submitLoading').style.display = 'block';
         localStorage.setItem('savedEmail', userEmailInput.value);
 
-        // ★ 核心變更：將 equipId 改為陣列傳輸
         const sendData = {
             userEmail: userEmailInput.value,
             equipId: Array.from(selectedEquipsSet), 
