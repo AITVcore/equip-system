@@ -44,6 +44,7 @@
             <select id="action" required>
                 <option value="借用設備">借用設備</option>
                 <option value="歸還設備">歸還設備</option>
+		<option value="申請展延">申請展延</option>
                 <option value="加簽確認">加簽確認</option>
                 <option value="故障通報">故障通報</option>
                 <option value="設備維修">設備維修</option>
@@ -171,18 +172,23 @@
         });
     };
 
-    function getEligibleEquips() {
+	function getEligibleEquips() {
         const action = actionSelect.value;
         const email = userEmailInput.value.trim().toLowerCase();
 
         return allRawData.filter(item => {
             if (action === '借用設備') return item.status === '在庫';
-            if (action === '歸還設備') return item.status === '借出中' && item.cStatus !== '待簽核' && item.borrower.toLowerCase() === email;
-            if (action === '加簽確認') return item.status === '申請中' || item.cStatus === '待簽核';
+            // 歸還設備時，排除待簽核與展延待簽核的設備
+            if (action === '歸還設備') return item.status === '借出中' && item.cStatus !== '待簽核' && item.cStatus !== '展延待簽核' && item.borrower.toLowerCase() === email;
+            // 🌟 申請展延的條件：必須是自己借的，且尚未進入任何待簽核狀態
+            if (action === '申請展延') return item.status === '借出中' && item.cStatus !== '待簽核' && item.cStatus !== '展延待簽核' && item.borrower.toLowerCase() === email;
+            // 🌟 加簽確認時，允許核准「借用」、「歸還」與「展延」
+            if (action === '加簽確認') return item.status === '申請中' || item.cStatus === '待簽核' || item.cStatus === '展延待簽核';
             if (action === '故障通報') return item.status !== '待維修' && item.status !== '維修中';
             if (action === '設備維修') return item.status === '待維修' || item.status === '在庫' || item.status === ''; 
             if (action === '維修取回') return item.status === '維修中' || item.status === '待維修';
-            if (action === '撤銷申請') return (item.status === '申請中' || item.cStatus === '待簽核') && item.borrower.toLowerCase() === email;
+            // 🌟 撤銷申請擴增條件，允許撤銷展延申請
+            if (action === '撤銷申請') return (item.status === '申請中' || item.cStatus === '待簽核' || item.cStatus === '展延待簽核') && item.borrower.toLowerCase() === email;
             return false;
         });
     }
@@ -385,6 +391,18 @@ function renderEquips() {
             reasonLabel.textContent = '備註 (選填)';
             reasonInput.placeholder = '有什麼需要特別說明的嗎？(選填)';
             reasonInput.required = false;
+        }
+	else if (this.value === '申請展延') {
+            statusGroup.classList.add('hidden');
+            locationGroup.classList.add('hidden'); 
+            
+            cosignerGroup.classList.remove('hidden'); 
+            cosignerLabel.textContent = '加簽人/核准人 E-Mail (必填)';
+            cosignerInput.required = true;
+            
+            reasonLabel.textContent = '展延原因與預計歸還時間 (必填)';
+            reasonInput.placeholder = '請說明為何需要展延...';
+            reasonInput.required = true;
         } 
         else if (this.value === '加簽確認') {
             statusGroup.classList.add('hidden');
