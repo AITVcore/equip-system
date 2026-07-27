@@ -178,16 +178,17 @@
 
         return allRawData.filter(item => {
             if (action === '借用設備') return item.status === '在庫';
-            // 歸還設備時，排除待簽核與展延待簽核的設備
             if (action === '歸還設備') return item.status === '借出中' && item.cStatus !== '待簽核' && item.cStatus !== '展延待簽核' && item.borrower.toLowerCase() === email;
-            // 🌟 申請展延的條件：必須是自己借的，且尚未進入任何待簽核狀態
             if (action === '申請展延') return item.status === '借出中' && item.cStatus !== '待簽核' && item.cStatus !== '展延待簽核' && item.borrower.toLowerCase() === email;
-            // 🌟 加簽確認時，允許核准「借用」、「歸還」與「展延」
-            if (action === '加簽確認') return item.status === '申請中' || item.cStatus === '待簽核' || item.cStatus === '展延待簽核';
+            
+            // 🌟 關鍵修改：加簽確認時，除了看狀態，還要比對系統紀錄的加簽人是否為當前操作者的 email
+            if (action === '加簽確認') {
+                return (item.status === '申請中' || item.cStatus === '待簽核' || item.cStatus === '展延待簽核') && (item.cosigner && item.cosigner.toLowerCase() === email);
+            }
+            
             if (action === '故障通報') return item.status !== '待維修' && item.status !== '維修中';
             if (action === '設備維修') return item.status === '待維修' || item.status === '在庫' || item.status === ''; 
             if (action === '維修取回') return item.status === '維修中' || item.status === '待維修';
-            // 🌟 撤銷申請擴增條件，允許撤銷展延申請
             if (action === '撤銷申請') return (item.status === '申請中' || item.cStatus === '待簽核' || item.cStatus === '展延待簽核') && item.borrower.toLowerCase() === email;
             return false;
         });
