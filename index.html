@@ -200,11 +200,11 @@ function getEligibleEquips() {
 
         return allRawData.filter(item => {
             if (action === '借用設備') return item.status === '在庫';
-            // 🌟 修改：確保歸還或展延的設備，其當前狀態必須是空字串 (代表已核准，在借用人手上)
-            if (action === '歸還設備') return item.status === '借出中' && item.cStatus === '' && item.borrower.toLowerCase() === email;
-            if (action === '申請展延') return item.status === '借出中' && item.cStatus === '' && item.borrower.toLowerCase() === email;
             
-            // 🌟 關鍵修改：加簽確認時，除了看狀態，還要比對系統紀錄的加簽人是否為當前操作者的 email
+            // 🌟 修正：只要狀態是「借出中」，且不是「待簽核」相關狀態，就可以歸還或展延
+            if (action === '歸還設備') return item.status === '借出中' && item.cStatus !== '待簽核' && item.cStatus !== '展延待簽核' && item.borrower.toLowerCase() === email;
+            if (action === '申請展延') return item.status === '借出中' && item.cStatus !== '待簽核' && item.cStatus !== '展延待簽核' && item.borrower.toLowerCase() === email;
+            
             if (action === '加簽確認') {
                 return (item.status === '申請中' || item.cStatus === '待簽核' || item.cStatus === '展延待簽核') && (item.cosigner && item.cosigner.toLowerCase() === email);
             }
