@@ -196,14 +196,15 @@
         });
     };
 
-	function getEligibleEquips() {
+function getEligibleEquips() {
         const action = actionSelect.value;
         const email = userEmailInput.value.trim().toLowerCase();
 
         return allRawData.filter(item => {
             if (action === '借用設備') return item.status === '在庫';
-            if (action === '歸還設備') return item.status === '借出中' && item.cStatus !== '待簽核' && item.cStatus !== '展延待簽核' && item.borrower.toLowerCase() === email;
-            if (action === '申請展延') return item.status === '借出中' && item.cStatus !== '待簽核' && item.cStatus !== '展延待簽核' && item.borrower.toLowerCase() === email;
+            // 🌟 修改：確保歸還或展延的設備，其當前狀態必須是空字串 (代表已核准，在借用人手上)
+            if (action === '歸還設備') return item.status === '借出中' && item.cStatus === '' && item.borrower.toLowerCase() === email;
+            if (action === '申請展延') return item.status === '借出中' && item.cStatus === '' && item.borrower.toLowerCase() === email;
             
             // 🌟 關鍵修改：加簽確認時，除了看狀態，還要比對系統紀錄的加簽人是否為當前操作者的 email
             if (action === '加簽確認') {
