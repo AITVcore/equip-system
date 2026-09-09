@@ -151,23 +151,47 @@
     const statusWarning = document.getElementById('statusWarning');
     const submitBtn = document.getElementById('submitBtn');
 
-    window.onload = function() {
+	window.onload = function() {
         const savedEmail = localStorage.getItem('savedEmail');
         if (savedEmail) {
             userEmailInput.value = savedEmail;
         }
 
+        // 🌟 1. 先嘗試從瀏覽器本地抓取上次的舊暫存資料 (達到秒開效果)
+        const localCachedData = localStorage.getItem('equipDataCache');
+        if (localCachedData) {
+            try {
+                allRawData = JSON.parse(localCachedData);
+                loadingText.classList.add('hidden'); // 隱藏載入中文字
+                form.classList.remove('hidden');     // 瞬間顯示表單
+                actionSelect.dispatchEvent(new Event('change'));
+                renderCategories(); 
+            } catch(e) {}
+        }
+
+        // 🌟 2. 不管有沒有本地暫存，都在背景默默向 GAS 發送請求獲取「最新資料」
         fetch(GAS_URL)
         .then(response => response.json())
         .then(data => {
             allRawData = data;
-            loadingText.classList.add('hidden');
-            form.classList.remove('hidden');
-            actionSelect.dispatchEvent(new Event('change'));
-            renderCategories(); 
+            // 將最新資料存入瀏覽器本地暫存，供下次秒開使用
+            localStorage.setItem('equipDataCache', JSON.stringify(data));
+            
+            // 如果剛才沒有本地暫存(第一次開啟網頁)，現在顯示表單
+            if (!localCachedData) {
+                loadingText.classList.add('hidden');
+                form.classList.remove('hidden');
+                actionSelect.dispatchEvent(new Event('change'));
+            }
+            
+            // 靜默更新當前畫面上的清單，確保使用者看到的是最新狀態
+            renderCategories();
+            validateFormSubmitState();
         })
         .catch(err => {
-            loadingText.textContent = "載入設備清單失敗，請重新整理網頁。";
+            if (!localCachedData) {
+                loadingText.textContent = "載入設備清單失敗，請重新整理網頁。";
+            }
             console.error(err);
         });
     };
