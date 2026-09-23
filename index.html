@@ -372,7 +372,8 @@ function renderEquips() {
 
     currentStatusSelect.addEventListener('change', checkBorrowStatus);
     
-    userEmailInput.addEventListener('blur', function() {
+// 🌟 修正：只有當 E-Mail 真的被修改時 (change)，才清空已選設備
+    userEmailInput.addEventListener('change', function() {
         selectedEquipsSet.clear(); 
         validateFormSubmitState();
         renderCategories();
