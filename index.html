@@ -172,19 +172,21 @@ window.onload = function() {
         }
 
         // 2. 背景向 GAS 獲取最新資料，並「強制重新渲染畫面」
-	fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify(sendData),
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' }
-        }).then(() => {
-            alert(sendData.action + " 成功！已批次處理 " + selectedEquipsSet.size + " 項設備，並同步發送通知信。");
+	fetch(GAS_URL, { cache: "no-store" }) // 🌟 加上 no-store 防止瀏覽器快取舊網址
+        .then(response => response.json())
+        .then(data => {
+            allRawData = data;
+            localStorage.setItem('equipDataCache', JSON.stringify(data));
             
-            // 🌟 關鍵修正：送出成功後，立刻清空前端的舊暫存資料
-            localStorage.removeItem('equipDataCache');
+            if (!localCachedData) {
+                loadingText.classList.add('hidden');
+                form.classList.remove('hidden');
+            }
             
-            window.location.reload(); 
-        }).catch(err => {
+            // 🌟 關鍵修正：確保最新資料抓回來後，畫面要跟著重新計算並繪製！
+            actionSelect.dispatchEvent(new Event('change')); 
+        })
+        .catch(err => {
             if (!localCachedData) {
                 loadingText.textContent = "載入設備清單失敗，請檢查網路或重新整理網頁。";
             }
@@ -516,13 +518,17 @@ function renderEquips() {
             period: periodGroup.classList.contains('hidden') ? "" : periodSelect.value 
         };
 
-        fetch(GAS_URL, {
+	fetch(GAS_URL, {
             method: 'POST',
             body: JSON.stringify(sendData),
             mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' }
         }).then(() => {
             alert(sendData.action + " 成功！已批次處理 " + selectedEquipsSet.size + " 項設備，並同步發送通知信。");
+            
+            // 🌟 關鍵修正：送出成功後，立刻清空前端的舊暫存資料
+            localStorage.removeItem('equipDataCache');
+            
             window.location.reload(); 
         }).catch(err => {
             alert("傳送失敗");
