@@ -356,16 +356,26 @@ function renderEquips() {
         updateSelectedBasket(); 
     }
 
-    function checkBorrowStatus() {
+	function checkBorrowStatus() {
         if (actionSelect.value === '借用設備') {
             if (currentStatusSelect.value === '外借') {
                 reasonLabel.textContent = '備註 - 外借對象 (必填)';
                 reasonInput.placeholder = '請輸入外借對象單位/姓名...';
                 reasonInput.required = true;
+                
+                // 🌟 新增：當選擇外借時，顯示「需通知人員」欄位
+                notifyGroup.classList.remove('hidden');
+                notifyLabel.textContent = '需通知人員 E-Mail (必填)';
+                notifyEmailsInput.required = true;
             } else {
                 reasonLabel.textContent = '備註 (選填)';
                 reasonInput.placeholder = '有什麼需要特別說明的嗎？(選填)';
                 reasonInput.required = false;
+                
+                // 🌟 新增：非外借時，隱藏並清空「需通知人員」欄位
+                notifyGroup.classList.add('hidden');
+                notifyEmailsInput.required = false;
+                notifyEmailsInput.value = '';
             }
         }
     }
